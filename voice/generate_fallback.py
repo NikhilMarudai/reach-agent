@@ -4,9 +4,10 @@ Usage:
     python voice/generate_fallback.py            # needs ELEVENLABS_API_KEY in ../.env or env
     VOICE_ID=<id> python voice/generate_fallback.py   # pin a specific voice
 
-Voice selection: $VOICE_ID if set; otherwise picks a deep/confident prebuilt
-voice by name preference, else the first voice on the account. Uses
-eleven_flash_v2_5 (the low-latency model — same one the live agent should use).
+Voice selection: $VOICE_ID if set; otherwise Eric (cjVigY5qzO86Huf0OWal) —
+the voice the LIVE conversational agent is plan-locked to. Fallback and live
+must be the same voice or the demo audibly switches speakers mid-story.
+Uses eleven_flash_v2_5 (low-latency).
 """
 import os
 import sys
@@ -21,7 +22,8 @@ LINES = [
     "Alice is four weeks deep. You don't need her streak. You need Thursday.",
     "Cut the power if you want. I keep receipts. When I come back, I know exactly where we left off.",
 ]
-PREFERRED = ['Adam', 'Clyde', 'Antoni', 'Brian']
+# Eric — matches the live convai agent's plan-locked voice. Do not drift.
+DEFAULT_VOICE_ID = 'cjVigY5qzO86Huf0OWal'
 
 
 def _key():
@@ -43,13 +45,8 @@ def _req(url, key, data=None):
 
 def main():
     key = _key()
-    voice_id = os.environ.get('VOICE_ID')
-    if not voice_id:
-        voices = json.load(_req('https://api.elevenlabs.io/v1/voices', key))['voices']
-        by_name = {v['name']: v['voice_id'] for v in voices}
-        voice_id = next((by_name[n] for n in PREFERRED if n in by_name),
-                        voices[0]['voice_id'])
-        print(f'voice: {next(n for n, i in by_name.items() if i == voice_id)}')
+    voice_id = os.environ.get('VOICE_ID') or DEFAULT_VOICE_ID
+    print(f'voice_id: {voice_id}')
 
     out = HERE / 'fallback'
     out.mkdir(exist_ok=True)
