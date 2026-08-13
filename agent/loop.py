@@ -29,6 +29,7 @@ MAX_ACTIONS = 3
 
 class AgentState(TypedDict, total=False):
     username: str
+    user_id: int
     challenge_id: int
     dossier: dict
     streak: Any
@@ -70,12 +71,14 @@ def _parse_json(text: str) -> dict:
 def build_graph(memory: Memory, tools: ReachTools, checkpointer):
     async def observe(state: AgentState) -> AgentState:
         u = state["username"]
+        profile = await tools.login(u)  # warms the token cache; gives numeric id
+        user_id = profile.get("id") if isinstance(profile, dict) else None
         cursor = memory.get_cursor(u)
         streak = await tools.streak_state(u)
         posts = await tools.list_posts(u, state["challenge_id"])
-        events = await tools.get_events(u, cursor.get("last_event_id"))
+        events = await tools.get_events(user_id, cursor.get("last_seen_iso", ""))
         return {"streak": streak, "posts": posts, "events": events,
-                "tool_errors": list(tools.errors)}
+                "user_id": user_id, "tool_errors": list(tools.errors)}
 
     async def remember(state: AgentState) -> AgentState:
         u = state["username"]
@@ -114,8 +117,9 @@ def build_graph(memory: Memory, tools: ReachTools, checkpointer):
             "their proof (their peers do), you NEVER post for them, and you never "
             "call yourself a coach. You may propose plan adjustments and at most "
             f"{MAX_ACTIONS} actions. The only executable action is a peer nudge: "
-            '{"tool": "nudge", "args": {"challenge_id": int, "target_username": str, '
-            '"message": str}}. Anything else goes in "proposals" (strings). '
+            '{"tool": "nudge", "args": {"challenge_id": int, "recipient_user_id": int, '
+            '"custom_message": str}} (≤140 chars). Anything else goes in "proposals" '
+            "(strings). "
             "Speak in the register this person responds to. Reply ONLY with JSON:\n"
             '{"message_to_user": str, "plan": [{"commitment": str, '
             '"adjustment_proposed": str}], "actions": [...], "proposals": [str]}\n\n'
@@ -153,11 +157,8 @@ def build_graph(memory: Memory, tools: ReachTools, checkpointer):
             "plan": decision.get("plan", []),
             "message_to_user": decision.get("message_to_user", ""),
         }
-        events = state.get("events") or []
-        if isinstance(events, list) and events:
-            last_ids = [e.get("id") for e in events if isinstance(e, dict) and e.get("id")]
-            if last_ids:
-                memory.set_cursor(u, last_event_id=max(last_ids))
+        memory.set_cursor(u, last_seen_iso=datetime.datetime.now(
+            datetime.timezone.utc).isoformat())
         memory.finish_run(
             state.get("run_id"),
             summary=decision.get("message_to_user", "")[:500],

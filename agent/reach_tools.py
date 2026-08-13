@@ -35,7 +35,10 @@ class ReachTools:
             self.errors.append(f"{name}({args}) failed: {e}")
             return None
 
-    # ── reads ───────────────────────────────────────────────────────
+    # ── reads (signatures reconciled against B's server, 14:20) ─────
+    async def login(self, username: str):
+        return await self._call("login_persona", {"username": username})
+
     async def streak_state(self, username: str):
         return await self._call("get_streak_state", {"username": username})
 
@@ -43,18 +46,22 @@ class ReachTools:
         return await self._call(
             "list_posts", {"username": username, "challenge_id": challenge_id})
 
-    async def get_events(self, username: str, since_id: int | None = None):
-        args: dict = {"username": username}
-        if since_id is not None:
-            args["since_id"] = since_id
+    async def get_events(self, user_id: int | None = None, since: str = ""):
+        # Admin-scoped on B's side: numeric user_id + ISO `since`, no username.
+        args: dict = {"page_size": 40}
+        if user_id is not None:
+            args["user_id"] = user_id
+        if since:
+            args["since"] = since
         return await self._call("get_events", args)
 
     async def list_challenges(self, username: str):
         return await self._call("list_challenges", {"username": username})
 
-    # ── writes (the server enforces DRY_RUN + the cap) ──────────────
-    async def nudge(self, username: str, challenge_id: int, target_username: str,
-                    message: str):
+    # ── writes (the server enforces the dry-run gate + the cap) ─────
+    async def nudge(self, username: str, challenge_id: int,
+                    recipient_user_id: int, custom_message: str = ""):
         return await self._call("nudge", {
             "username": username, "challenge_id": challenge_id,
-            "target_username": target_username, "message": message})
+            "recipient_user_id": recipient_user_id,
+            "custom_message": custom_message[:140]})
