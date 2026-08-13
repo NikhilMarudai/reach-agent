@@ -59,6 +59,10 @@ comment = check("comment_on_post (live)",
 check("comment replay is a no-op",
       server.comment_on_post("uifix_author", post["id"], "Strong proof — keep the streak alive."),
       lambda r: r.get("already_commented") is True)
+posts_383 = check("list_posts filters by challenge (challenge_id param, not challenge)",
+                  server.list_posts("uifix_rich", 383),
+                  lambda r: isinstance(r, list) and r and all(p["challenge"] == 383 for p in r))
+
 # Gate-passing writes this run: post_proof + its replay always; verify and
 # comment only on a fresh world (their idempotency layer no-ops on re-runs).
 check("write cap counting", {"writes": server._writes_done},

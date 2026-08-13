@@ -183,8 +183,10 @@ def get_challenge(username: str, challenge_id: int, target_user: int | None = No
 def list_posts(username: str, challenge_id: int) -> list | dict:
     """Proof posts for a challenge. NOTE: new posts emit NO event on the diary —
     this poll is the only way to see them before anyone votes."""
-    payload = _get("/api/challenges/challenge-posts/", username, challenge=challenge_id)
-    return [_post_brief(p) for p in _items(payload)]
+    # The query param is challenge_id — `challenge` is SILENTLY IGNORED and
+    # returns every visible post (found live 15:20; belt-and-braces filter below).
+    payload = _get("/api/challenges/challenge-posts/", username, challenge_id=challenge_id)
+    return [_post_brief(p) for p in _items(payload) if p.get("challenge") == challenge_id]
 
 
 @mcp.tool()
