@@ -25,6 +25,10 @@ class ReachTools:
             return None
         try:
             out = await tool.ainvoke(args)
+            # Adapters may return MCP content blocks: [{'type':'text','text':...}]
+            if isinstance(out, list) and out and isinstance(out[0], dict) \
+                    and out[0].get("type") == "text":
+                out = "".join(b.get("text", "") for b in out)
             if isinstance(out, str):
                 try:
                     return json.loads(out)
@@ -65,3 +69,15 @@ class ReachTools:
             "username": username, "challenge_id": challenge_id,
             "recipient_user_id": recipient_user_id,
             "custom_message": custom_message[:140]})
+
+    async def comment_on_post(self, username: str, post_id: int, content: str):
+        return await self._call("comment_on_post", {
+            "username": username, "post_id": post_id, "content": content[:990]})
+
+    async def create_challenge(self, username: str, name: str, description: str,
+                               proof_description: str, challenge_type: str = "fitness",
+                               frequency: str = "daily", duration_days: int = 14):
+        return await self._call("create_challenge", {
+            "username": username, "name": name[:100], "description": description,
+            "proof_description": proof_description, "challenge_type": challenge_type,
+            "frequency": frequency, "duration_days": duration_days})

@@ -24,7 +24,7 @@ from langgraph.graph import END, StateGraph
 from .memory import Memory
 from .reach_tools import ReachTools
 
-ACT_ALLOWLIST = {"nudge"}
+ACT_ALLOWLIST = {"nudge", "create_challenge"}
 MAX_ACTIONS = 3
 
 
@@ -133,10 +133,18 @@ def build_graph(memory: Memory, tools: ReachTools, checkpointer):
             "You are an accountability agent for one person. You NEVER verify "
             "their proof (their peers do), you NEVER post for them, and you never "
             "call yourself a coach. You may propose plan adjustments and at most "
-            f"{MAX_ACTIONS} actions. The only executable action is a peer nudge: "
-            '{"tool": "nudge", "args": {"challenge_id": int, "recipient_user_id": int, '
-            '"custom_message": str}} (≤140 chars). Anything else goes in "proposals" '
-            "(strings). "
+            f"{MAX_ACTIONS} actions. Executable actions:\n"
+            '1. {"tool": "nudge", "args": {"challenge_id": int, "recipient_user_id": '
+            'int, "custom_message": str}} (≤140 chars)\n'
+            '2. {"tool": "create_challenge", "args": {"name": str, "description": str, '
+            '"proof_description": str, "challenge_type": '
+            '"fitness|studies|lifestyle|diet|hobbies|professional", "frequency": '
+            '"daily", "duration_days": int}} — use ONLY when their pattern warrants a '
+            "structural fix: a small recovery challenge (7-14 days), named in their "
+            "voice, designed around their failure mode (they are auto-enrolled as "
+            "creator). At most one, and only if none of their current challenges "
+            "already serves the purpose.\n"
+            'Anything else goes in "proposals" (strings). '
             "Speak in the register this person responds to. Reply ONLY with JSON:\n"
             '{"message_to_user": str, "plan": [{"commitment": str, '
             '"adjustment_proposed": str}], "actions": [...], "proposals": [str]}\n\n'
@@ -154,9 +162,14 @@ def build_graph(memory: Memory, tools: ReachTools, checkpointer):
     async def act(state: AgentState) -> AgentState:
         taken = []
         for a in state.get("decision", {}).get("actions", [])[:MAX_ACTIONS]:
-            if a.get("tool") not in ACT_ALLOWLIST:
+            tool_name = a.get("tool")
+            if tool_name not in ACT_ALLOWLIST:
                 continue
-            result = await tools.nudge(state["username"], **a.get("args", {}))
+            fn = getattr(tools, tool_name)
+            try:
+                result = await fn(state["username"], **a.get("args", {}))
+            except TypeError as exc:  # LLM sent bad args — record, don't crash
+                result = {"error": str(exc)}
             taken.append({**a, "result": result})
         return {"actions_taken": taken}
 
@@ -176,6 +189,18 @@ def build_graph(memory: Memory, tools: ReachTools, checkpointer):
             "plan": decision.get("plan", []),
             "message_to_user": decision.get("message_to_user", ""),
         }
+        # Speak INSIDE the app: land the message as a comment on the user's
+        # latest post, prefixed as their agent. The server's write gate decides
+        # whether it actually posts (dry-run returns would_do, nothing lands).
+        msg = decision.get("message_to_user", "")
+        posts = state.get("posts") or []
+        mine = [p for p in posts if isinstance(p, dict)
+                and p.get("user") == u and p.get("id")]
+        if mine and msg:
+            latest = max(mine, key=lambda p: (str(p.get("post_date") or ""), p["id"]))
+            blob["spoke_in_app"] = await tools.comment_on_post(
+                u, latest["id"], f"🤖 Ridge (accountability agent): {msg}")
+
         memory.set_cursor(u, last_seen_iso=datetime.datetime.now(
             datetime.timezone.utc).isoformat())
         memory.finish_run(
