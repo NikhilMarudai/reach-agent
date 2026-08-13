@@ -58,15 +58,21 @@ class Memory:
         )
 
     # ── runs ────────────────────────────────────────────────────────
-    def start_run(self, user: str, thread: str, trigger: str):
-        return self.db.runs.insert_one(
+    def start_run(self, user: str, thread: str, trigger: str) -> str:
+        # Returned as str — run ids travel through LangGraph state, and the
+        # checkpointer can't serialize raw ObjectIds.
+        return str(self.db.runs.insert_one(
             {"user": user, "thread": thread, "trigger": trigger,
              "started_at": utcnow(), "status": "running"}
-        ).inserted_id
+        ).inserted_id)
 
-    def finish_run(self, run_id, summary: str, actions: list[dict], proposals: list[dict]):
+    def finish_run(self, run_id: str | None, summary: str,
+                   actions: list[dict], proposals: list[dict]):
+        if not run_id:
+            return
+        from bson import ObjectId
         self.db.runs.update_one(
-            {"_id": run_id},
+            {"_id": ObjectId(run_id)},
             {"$set": {"status": "done", "finished_at": utcnow(),
                       "summary": summary, "actions": actions, "proposals": proposals}},
         )

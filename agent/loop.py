@@ -11,6 +11,7 @@ product, not a hackathon shortcut.
 """
 from __future__ import annotations
 
+import asyncio
 import datetime
 import json
 import os
@@ -167,10 +168,21 @@ def build_graph(memory: Memory, tools: ReachTools, checkpointer):
         )
         return {"blob": blob}
 
+    def paced(fn):
+        # AGENT_NODE_DELAY=<seconds> slows the loop — deterministic ctrl-C window
+        # for the kill-and-resume beat, and stage pacing. Default 0.
+        async def wrapped(state):
+            delay = float(os.environ.get("AGENT_NODE_DELAY", "0"))
+            if delay:
+                await asyncio.sleep(delay)
+            return await fn(state)
+        wrapped.__name__ = fn.__name__
+        return wrapped
+
     g = StateGraph(AgentState)
     for name, fn in [("observe", observe), ("remember", remember),
                      ("decide", decide), ("act", act), ("brief", brief)]:
-        g.add_node(name, fn)
+        g.add_node(name, paced(fn))
     g.set_entry_point("observe")
     g.add_edge("observe", "remember")
     g.add_edge("remember", "decide")
