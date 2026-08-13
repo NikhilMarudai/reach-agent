@@ -8,3 +8,5 @@ venv/
 node_modules/
 .DS_Store
 *.log
+demo/.tokens/
+demo/context_blob.json

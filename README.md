@@ -1,50 +1,112 @@
-# reach-agent — No Cold Start
+# REACH Agent — No Cold Start
 
-Built live at the **MongoDB Persistent Context Sprint Hackathon** (2026-08-13, Pier 48 SF).
+An accountability agent whose feedback signal is **other humans verifying photographic
+proof** — with persistent memory in MongoDB Atlas, so run two starts where run one
+learned. Kill it mid-deliberation; the same command resumes from its checkpoint.
+
+Built live at the **MongoDB Persistent Context Sprint Hackathon**, 2026-08-13, Pier 48 SF.
 
 ## Provenance — read this first, judges
 
-- **Built during the hackathon: everything in this repository.** First commit ~1:40 PM PT.
+- **Built during the hackathon: everything in this repository.** First commit 1:40 PM PT,
+  ~40 commits over the afternoon — the history is the timesheet.
 - **Pre-existing:** [REACH](https://reachtoreach.com) — our shipped social-accountability
-  app (App Store). It is used ONLY as the external environment this agent observes and
-  controls, through its normal HTTP API against a local dev instance. No REACH code is
-  in this repo.
+  app (App Store). It is the *environment* this agent observes and acts in, reached only
+  over its normal HTTP API against a local dev instance. No REACH code is in this repo.
+  (Demo-world seed data and demo image styling live in REACH's own private repo — they
+  are demo dressing for the pre-existing product, not part of this build.)
 
-## What it is
+## Why this is different
 
-Every accountability app trusts self-report. REACH's feedback signal is **other humans
-verifying photographic proof**. This agent plans your commitments, watches what your
-peers actually verified, and adapts — with persistent memory in MongoDB Atlas, so run
-two starts where run one learned. Kill it mid-run; it resumes from its checkpoint.
-No cold start.
+Every accountability/coaching agent trusts **self-report** — the user says they did the
+thing, the model believes them. REACH's core loop is *peers verifying photographic proof,
+majority-wins*. That gives this agent something rare: **a ground-truth feedback signal
+produced by humans.** The agent plans; people judge; the verdicts feed the memory.
+
+Structural rule, enforced in code, not prompt: the agent **never verifies proof and never
+posts proof** — humans do. Its only self-executed writes are a peer nudge, an in-app
+comment, and (at most one, pattern-warranted) recovery challenge. Everything else is a
+proposal.
+
+## What it does
+
+- **Reads the world** through a purpose-built MCP server over REACH's HTTP API: streaks,
+  proof posts, the verification event diary.
+- **Remembers with evidence.** Every observation stored in MongoDB must carry evidence
+  pointers (`post:4293`, `date:2026-08-09`) — an evidence-free observation is refused at
+  the storage layer (`agent/memory.py` raises). Observations distill into revisable
+  beliefs; beliefs change the next plan.
+- **Discovers real patterns.** In the demo world it finds, unprompted, that Carla's only
+  streak breaks fall on week edges (Sun 8/09, Mon 8/03 — true in the data), and rebuilds
+  her plan around that failure mode.
+- **Acts in the real app**: comments as 🤖 Ridge on real posts, nudges peers, creates a
+  recovery challenge — all through the same API doors the iOS app uses.
+- **Survives death.** LangGraph checkpoints every node to MongoDB. Ctrl-C mid-deliberation,
+  run the same command: `[resume]` — it continues mid-thought. **No cold start.**
+- **Talks.** A persistent chat interface (one Mongo-backed conversation, kill-proof) drives
+  everything; an ElevenLabs conversational agent ("Ridge", expressive mode) rides the same
+  transcript, with pre-rendered fallback lines in the same voice.
 
 ## Architecture
 
 ```
-REACH API (Django, pre-existing, localhost:8010)
-        ▲  HTTP · token auth
+REACH (Django, pre-existing, localhost:8010)
+        ▲  HTTP · token auth · same rules as the mobile app
         │
-  mcp-server/   FastMCP · ~10 REACH tools · dry-run + write cap
-        ▲  tools
+  mcp-server/   FastMCP · 12 REACH tools · dry-run gate + write cap
+        ▲
+        │  tools (langchain-mcp-adapters)
         │
-  agent/        LangGraph loop · OpenRouter models
-        │       wake → read → remember → decide → act → speak
+  agent/        LangGraph: observe → remember → decide → act → brief
+        │       models via OpenRouter (planner + fast classifier)
+        │       story.py: per-user narrative layer
         ▼
-  MongoDB Atlas (hackathon sandbox)
-        observations · beliefs (vector search) · runs · checkpoints
-        +
-  voice/        ElevenLabs conversational agent
+  MongoDB Atlas (hackathon sandbox) ──────────────────────────────
+     observations (evidence-REQUIRED) · beliefs · runs · stories
+     conversation transcript · LangGraph checkpoints
+        ▲
+        │
+  voice/ + chat  ElevenLabs agent "Ridge" + persistent chat (:8030)
+  demo/viewer    live memory dashboard (:8020) — every belief → its evidence
 ```
 
-## Layout
+## MongoDB usage (the theme, concretely)
 
-| Dir | What |
-|---|---|
-| `mcp-server/` | FastMCP server wrapping the REACH HTTP API |
-| `agent/` | LangGraph loop, MongoDB memory, checkpointer |
-| `voice/` | ElevenLabs conversational wiring + personality |
-| `demo/` | Demo runbook, seed notes, the 1-minute video |
+| Store | Collection(s) | What it changes |
+|---|---|---|
+| Episodic memory | `observations` | Facts with mandatory evidence pointers into REACH |
+| Semantic memory | `beliefs` | The working model of the person — read into every plan |
+| Narrative | `stories` | Per-user coherent history, composed from the above |
+| Audit | `runs` | Every deliberation: what it read, concluded, did |
+| State | LangGraph checkpoints | Kill-and-resume mid-deliberation |
+| Conversation | chat transcript | One persistent thread; voice and text share it |
 
-## Setup
+What's stored **changes what the system does next** — beliefs alter the plan, the plan
+alters the actions, verified outcomes alter the beliefs.
 
-Copy `.env.example` → `.env` and fill it. Never commit `.env`.
+## Run it
+
+```bash
+python3.11 -m venv .venv && .venv/bin/pip install -r agent/requirements.txt
+cp .env.example .env   # fill: Atlas URI, OpenRouter key, ElevenLabs key
+.venv/bin/python agent/run.py --user carla_codes     # one deliberation (rerun = resume)
+.venv/bin/python voice/bridge.py                     # chat UI on :8030
+.venv/bin/python demo/viewer.py                      # memory viewer on :8020
+```
+
+Requires a running REACH dev instance on `:8010` — REACH is our shipped product and is
+not included here; the demo video shows the live loop end-to-end. Demo script:
+[`demo/RUNBOOK.md`](demo/RUNBOOK.md).
+
+## Stack
+
+MongoDB Atlas (memory, checkpoints, transcripts) · LangGraph +
+`langgraph-checkpoint-mongodb` · OpenRouter (model routing) · ElevenLabs Agents
+(expressive conversational voice) · MCP (FastMCP server + langchain-mcp-adapters) ·
+REACH (the pre-existing human-verification substrate).
+
+## Team
+
+Nikhil Marudai — solo human, with a fleet of Claude Code sessions as the build crew
+(orchestrator + three lanes), coordinated through a shared checkpoint file. The commit
+history shows the lanes landing in parallel.
