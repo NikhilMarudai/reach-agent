@@ -66,8 +66,11 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:  # noqa: BLE001
                 self._send(502, json.dumps({"error": str(e)}).encode())
         elif self.path.startswith("/history"):
+            import urllib.parse as _up
             import chat_engine
-            self._send(200, json.dumps(chat_engine.history(),
+            q = _up.parse_qs(_up.urlparse(self.path).query)
+            who = (q.get("username") or [None])[0]
+            self._send(200, json.dumps(chat_engine.history(who=who),
                                        default=str).encode())
         elif self.path.startswith("/talk"):  # voice mode (parked, still works)
             self._send(200, (ROOT / "voice" / "talk.html").read_bytes(),
@@ -85,7 +88,8 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/chat":
             import chat_engine  # lazy; voice/ is sys.path[0] when run as script
             try:
-                out = chat_engine.chat((body.get("message") or "").strip())
+                out = chat_engine.chat((body.get("message") or "").strip(),
+                                       username=body.get("username"))
                 self._send(200, json.dumps(out, default=str).encode())
             except Exception as e:  # noqa: BLE001
                 self._send(500, json.dumps({"error": str(e)}).encode())

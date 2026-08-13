@@ -26,7 +26,8 @@
 </head>
 <body>
 <header><b>🤖 Ridge</b> — text mode &nbsp;<span>controls REACH through the MCP server ·
-watch the feed (:3000) and the mind (:8020)</span></header>
+watch the feed (:3000) and the mind (:8020)</span><br>
+<span id="who">acting for: …</span></header>
 <div id="log"></div>
 <form id="f">
   <input id="inp" autocomplete="off" autofocus
@@ -35,7 +36,23 @@ watch the feed (:3000) and the mind (:8020)</span></header>
 </form>
 <script>
 const log = document.getElementById("log");
-let rendered = 0, busy = false;
+let rendered = 0, busy = false, me = null;
+
+// Follow whoever is logged into the REACH app: localhost cookies ignore ports,
+// so the app's session cookie rides along to :8010 — we just ask "who am I?".
+(async () => {
+  const who = document.getElementById("who");
+  try {
+    const r = await fetch("http://localhost:8010/api/users/me/",
+                          { credentials: "include" });
+    if (r.ok) {
+      me = await r.json();
+      who.textContent = `acting for: ${me.name || me.username} (from the app's login)`;
+      return;
+    }
+  } catch (e) { /* backend down or CORS — fall through */ }
+  who.textContent = "acting for: carla_codes (default — log into the app at :3000 to switch)";
+})();
 
 const add = (cls, txt) => {
   const d = document.createElement("div");
@@ -56,7 +73,8 @@ const evLine = (ev) => {
 async function render(force) {
   if (busy) return;
   try {
-    const h = await (await fetch("/history")).json();
+    const url = me?.username ? `/history?username=${encodeURIComponent(me.username)}` : "/history";
+    const h = await (await fetch(url)).json();
     if (!force && h.length === rendered) return;
     log.innerHTML = "";
     h.forEach(m => {
@@ -78,7 +96,7 @@ document.getElementById("f").onsubmit = async (e) => {
   try {
     await fetch("/chat", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text }),
+      body: JSON.stringify({ message: text, username: me?.username }),
     });
   } catch (err) { add("ridge err", "error: " + err); }
   busy = false; thinking.remove();

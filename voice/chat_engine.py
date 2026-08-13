@@ -27,15 +27,18 @@ _MEM = Memory()
 
 
 def append_turn(role: str, content: str, source: str = "text",
-                events: list | None = None) -> None:
+                events: list | None = None, who: str = "carla_codes") -> None:
     _MEM.db.chat_messages.insert_one({
-        "role": role, "content": content, "source": source,
+        "role": role, "content": content, "source": source, "who": who,
         "events": events or [], "ts": __import__("datetime").datetime.now(
             __import__("datetime").timezone.utc)})
 
 
-def history(limit: int = 200) -> list[dict]:
-    rows = list(_MEM.db.chat_messages.find({}, {"_id": 0})
+def history(limit: int = 200, who: str | None = None) -> list[dict]:
+    # Per-user threads: each primary user has their OWN conversation with the
+    # agent (a shared one let rich's chatter hijack alice's questions).
+    q = {"who": who} if who else {}
+    rows = list(_MEM.db.chat_messages.find(q, {"_id": 0})
                 .sort("ts", -1).limit(limit))
     return list(reversed(rows))
 
@@ -77,14 +80,27 @@ TOOLS = [
 ]
 
 
-def _system() -> str:
+def _system(primary: str) -> str:
     persona = (ROOT / "voice" / "persona.md").read_text()
     blob_path = ROOT / "demo" / "context_blob.json"
     blob = blob_path.read_text() if blob_path.exists() else "{}"
+    # The blob is from the LAST deliberation — it may be about a different
+    # user. Attaching it for the wrong primary makes the model answer from
+    # someone else's life (verified live: alice asked, got rich's penalties).
+    try:
+        blob_user = (json.loads(blob).get("user") or {}).get("username")
+    except ValueError:
+        blob_user = None
+    if blob_user != primary:
+        blob = ('{"note": "no cached context for this user — call get_state '
+                'before answering anything about their state"}')
     return (persona
             + "\n\nMODE: text chat. Be concise — 1-4 sentences unless asked for more. "
               "Cite evidence (dates, names) from the live context. Use tools to act "
-              "or to fetch fresh state; never invent state. Primary user: carla_codes. "
+              "or to fetch fresh state; never invent state. "
+              f"Primary user: {primary} — 'me'/'my' in their messages means "
+              f"{primary}; default every tool call to them unless another user "
+              "is named. "
               "NEVER refer to a challenge by its number — always use its NAME "
               "(map ids via the challenges list in get_state; fetch it if you only "
               "have an id). Same for people: display names, not usernames, when known."
@@ -113,22 +129,24 @@ async def _exec(name: str, args: dict):
     return {"error": f"unknown tool {name}"}
 
 
-def chat(user_msg: str) -> dict:
-    append_turn("user", user_msg, source="text")
+def chat(user_msg: str, username: str | None = None) -> dict:
+    primary = (username or "carla_codes").strip()
+    append_turn("user", user_msg, source="text", who=primary)
     client = OpenAI(base_url="https://openrouter.ai/api/v1",
                     api_key=os.environ["OPENROUTER_API_KEY"])
     model = os.environ.get("OPENROUTER_PLANNER_MODEL", "anthropic/claude-sonnet-4.5")
     window = [{"role": m["role"], "content": m["content"]}
-              for m in history(24) if m["role"] in ("user", "assistant")
+              for m in history(24, who=primary) if m["role"] in ("user", "assistant")
               and m.get("content")]
-    msgs = [{"role": "system", "content": _system()}] + window
+    msgs = [{"role": "system", "content": _system(primary)}] + window
     events: list[dict] = []
     for _ in range(5):
         r = client.chat.completions.create(model=model, messages=msgs,
                                            tools=TOOLS, temperature=0.3)
         m = r.choices[0].message
         if not m.tool_calls:
-            append_turn("assistant", m.content or "", source="text", events=events)
+            append_turn("assistant", m.content or "", source="text",
+                        events=events, who=primary)
             return {"reply": m.content or "", "events": events}
         msgs.append({"role": "assistant", "content": m.content,
                      "tool_calls": [tc.model_dump() for tc in m.tool_calls]})
