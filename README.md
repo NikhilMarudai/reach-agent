@@ -2,9 +2,16 @@
 
 > The accountability agent that remembers what your friends verified.
 
-An accountability agent whose feedback signal is **other humans verifying photographic
-proof** — with persistent memory in MongoDB Atlas, so run two starts where run one
-learned. Kill it mid-deliberation; the same command resumes from its checkpoint.
+Ridge is **an agentic layer for [REACH](https://reachtoreach.com), built entirely outside
+it** — it plugs in over the same HTTP API the mobile app uses, and its feedback signal is
+REACH's core loop: **other humans verifying photographic proof**. Persistent memory lives
+in MongoDB Atlas, so run two starts where run one learned; kill it mid-deliberation and
+the same command resumes from its checkpoint.
+
+It is built *for* REACH, not sold as a universal layer. The construction is modular — the
+entire REACH-specific surface is one MCP server plus one seam file (`agent/reach_tools.py`),
+which is what living outside the system forces — but we claim what we built: the agentic
+layer that gives one real app a memory grounded in human-verified truth.
 
 Built live at the **MongoDB Persistent Context Sprint Hackathon**, 2026-08-13, Pier 48 SF.
 
