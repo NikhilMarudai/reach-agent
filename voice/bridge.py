@@ -65,6 +65,14 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, json.dumps({"signed_url": signed_url()}).encode())
             except Exception as e:  # noqa: BLE001
                 self._send(502, json.dumps({"error": str(e)}).encode())
+        elif self.path.startswith("/resolve"):  # imessage handle -> username
+            import urllib.parse as _up
+            import chat_engine
+            qh = (_up.parse_qs(_up.urlparse(self.path).query).get("handle")
+                  or [""])[0]
+            row = chat_engine._MEM.db.imessage_links.find_one(
+                {"handle": qh}, {"_id": 0})
+            self._send(200, json.dumps(row or {}).encode())
         elif self.path.startswith("/history"):
             import urllib.parse as _up
             import chat_engine
@@ -94,6 +102,16 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:  # noqa: BLE001
                 self._send(500, json.dumps({"error": str(e)}).encode())
             return
+        if self.path == "/link":  # bind an iMessage handle to a REACH account
+            import chat_engine
+            handle = (body.get("handle") or "").strip()
+            username = (body.get("username") or "").strip()
+            if not handle or not username:
+                return self._send(400, b'{"error": "handle and username required"}')
+            chat_engine._MEM.db.imessage_links.update_one(
+                {"handle": handle}, {"$set": {"username": username}}, upsert=True)
+            return self._send(200, json.dumps(
+                {"linked": handle, "username": username}).encode())
         if self.path == "/transcript":  # voice lines join the same conversation
             import chat_engine
             role = "user" if body.get("role") == "user" else "assistant"

@@ -27,7 +27,12 @@
 <body>
 <header><b>🤖 Ridge</b> — text mode &nbsp;<span>controls REACH through the MCP server ·
 watch the feed (:3000) and the mind (:8020)</span><br>
-<span id="who">acting for: …</span></header>
+<span id="who">acting for: …</span>
+&nbsp;·&nbsp;<input id="imsg" placeholder="+1555… link iMessage" style="width:150px;
+background:#141b17;border:1px solid #223129;border-radius:4px;color:#dfe7e2;
+font:12px ui-monospace,Menlo,monospace;padding:3px 6px">
+<button id="linkbtn" style="font-size:12px;padding:3px 10px">Link</button>
+<span id="linkst" style="font-size:12px;color:#7d8f86"></span></header>
 <div id="log"></div>
 <form id="f">
   <input id="inp" autocomplete="off" autofocus
@@ -102,6 +107,19 @@ document.getElementById("f").onsubmit = async (e) => {
   busy = false; thinking.remove();
   await render(true);
   btn.disabled = false; inp.focus();
+};
+
+// "Log in" for iMessage: bind your handle to the account you're signed into.
+document.getElementById("linkbtn").onclick = async () => {
+  const handle = document.getElementById("imsg").value.trim();
+  const st = document.getElementById("linkst");
+  if (!handle) { st.textContent = "enter your phone/email"; return; }
+  if (!me?.username) { st.textContent = "log into the app at :3000 first"; return; }
+  const r = await (await fetch("/link", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ handle, username: me.username }),
+  })).json();
+  st.textContent = r.linked ? `✓ ${r.linked} → ${r.username}` : (r.error || "failed");
 };
 
 render(true);
