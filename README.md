@@ -45,7 +45,9 @@ Two rules keep it honest. First, enforced in code, not prompt: Ridge **never ver
 proof and never posts it**. Humans judge; the agent plans. Second: this is built *for*
 REACH, not sold as a universal layer. The construction is modular because living outside
 the app forces it to be (the entire app-specific surface is one MCP server plus one seam
-file, `agent/reach_tools.py`), but we claim what we built.
+file, `agent/reach_tools.py`), but we claim what we built. If you want to point the
+layer at your own app anyway, the whole job is two files:
+[`docs/ADAPTING.md`](docs/ADAPTING.md).
 
 ## How it works
 
