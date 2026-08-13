@@ -26,8 +26,23 @@ persona = (ROOT / "voice" / "persona.md").read_text()
 blob_path = ROOT / "demo" / "context_blob.json"
 blob = blob_path.read_text() if blob_path.exists() else "{}"
 
+# Voice works OFF the chat: recent transcript (text + voice) rides along so a
+# voice session continues the same conversation the chat page shows.
+convo = ""
+try:
+    sys.path.insert(0, str(ROOT))
+    from agent.memory import Memory
+    rows = list(Memory().db.chat_messages.find({}, {"_id": 0})
+                .sort("ts", -1).limit(12))
+    convo = "\n".join(f"{m['role']}{' (voice)' if m.get('source')=='voice' else ''}: "
+                      f"{(m.get('content') or '')[:280]}" for m in reversed(rows))
+except Exception:  # noqa: BLE001 — context push must not die on a read
+    pass
+
 prompt = (persona + "\n\n## LIVE CONTEXT — the current true state, cite it\n"
-          + blob)
+          + blob
+          + ("\n\n## RECENT CONVERSATION (text + voice — CONTINUE it, "
+             "don't restart it)\n" + convo if convo else ""))
 
 body = json.dumps({"conversation_config": {"agent": {"prompt": {"prompt": prompt}}}})
 req = urllib.request.Request(

@@ -51,8 +51,16 @@ document.getElementById("btn").onclick = async () => {
         },
       },
       onMessage: (m) => {
-        if (m?.message) log(m.source === "user" ? "me" : "ridge",
-                            `${m.source === "user" ? "you" : "ridge"}: ${m.message}`);
+        if (!m?.message) return;
+        log(m.source === "user" ? "me" : "ridge",
+            `${m.source === "user" ? "you" : "ridge"}: ${m.message}`);
+        // Voice joins the SAME conversation the chat page shows.
+        fetch("/transcript", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            role: m.source === "user" ? "user" : "assistant",
+            content: m.message }),
+        }).catch(() => {});
       },
       onStatusChange: (s) => { btn.textContent = `status: ${s.status ?? s}`; },
       onError: (e) => log("tool", `error: ${e}`),

@@ -17,10 +17,27 @@ from openai import OpenAI
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from agent.memory import Memory  # noqa: E402
 from agent.reach_tools import ReachTools  # noqa: E402
 from langchain_mcp_adapters.client import MultiServerMCPClient  # noqa: E402
 
-HISTORY: list[dict] = []  # user/assistant text turns only
+# One conversation, persisted in Atlas — text and voice both read/write it.
+# Kill this process, reopen the page: the conversation survives. No cold start.
+_MEM = Memory()
+
+
+def append_turn(role: str, content: str, source: str = "text",
+                events: list | None = None) -> None:
+    _MEM.db.chat_messages.insert_one({
+        "role": role, "content": content, "source": source,
+        "events": events or [], "ts": __import__("datetime").datetime.now(
+            __import__("datetime").timezone.utc)})
+
+
+def history(limit: int = 200) -> list[dict]:
+    rows = list(_MEM.db.chat_messages.find({}, {"_id": 0})
+                .sort("ts", -1).limit(limit))
+    return list(reversed(rows))
 
 TOOLS = [
     {"type": "function", "function": {
@@ -94,18 +111,21 @@ async def _exec(name: str, args: dict):
 
 
 def chat(user_msg: str) -> dict:
-    HISTORY.append({"role": "user", "content": user_msg})
+    append_turn("user", user_msg, source="text")
     client = OpenAI(base_url="https://openrouter.ai/api/v1",
                     api_key=os.environ["OPENROUTER_API_KEY"])
     model = os.environ.get("OPENROUTER_PLANNER_MODEL", "anthropic/claude-sonnet-4.5")
-    msgs = [{"role": "system", "content": _system()}] + HISTORY[-20:]
+    window = [{"role": m["role"], "content": m["content"]}
+              for m in history(24) if m["role"] in ("user", "assistant")
+              and m.get("content")]
+    msgs = [{"role": "system", "content": _system()}] + window
     events: list[dict] = []
     for _ in range(5):
         r = client.chat.completions.create(model=model, messages=msgs,
                                            tools=TOOLS, temperature=0.3)
         m = r.choices[0].message
         if not m.tool_calls:
-            HISTORY.append({"role": "assistant", "content": m.content or ""})
+            append_turn("assistant", m.content or "", source="text", events=events)
             return {"reply": m.content or "", "events": events}
         msgs.append({"role": "assistant", "content": m.content,
                      "tool_calls": [tc.model_dump() for tc in m.tool_calls]})

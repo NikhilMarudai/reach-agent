@@ -35,37 +35,59 @@ watch the feed (:3000) and the mind (:8020)</span></header>
 </form>
 <script>
 const log = document.getElementById("log");
+let rendered = 0, busy = false;
+
 const add = (cls, txt) => {
   const d = document.createElement("div");
   d.className = "msg " + cls; d.textContent = txt;
   log.appendChild(d); log.scrollTop = log.scrollHeight;
   return d;
 };
+
+const evLine = (ev) => {
+  const res = typeof ev.result === "object" && ev.result
+    ? (ev.result.id ? `→ id ${ev.result.id}` : `→ ${JSON.stringify(ev.result).slice(0, 120)}`)
+    : `→ ${ev.result}`;
+  return `⚙ ${ev.tool}(${JSON.stringify(ev.args).slice(0, 110)}) ${res}`;
+};
+
+// The Mongo transcript is the single source of truth — text AND voice turns.
+// Reopening this page replays the whole conversation. No cold start.
+async function render(force) {
+  if (busy) return;
+  try {
+    const h = await (await fetch("/history")).json();
+    if (!force && h.length === rendered) return;
+    log.innerHTML = "";
+    h.forEach(m => {
+      (m.events || []).forEach(ev => add("tool", evLine(ev)));
+      const tag = m.source === "voice" ? "🎙 " : "";
+      add(m.role === "user" ? "me" : "ridge", tag + m.content);
+    });
+    rendered = h.length;
+  } catch (e) { /* bridge briefly down — next poll catches up */ }
+}
+
 document.getElementById("f").onsubmit = async (e) => {
   e.preventDefault();
   const inp = document.getElementById("inp"), btn = document.getElementById("send");
   const text = inp.value.trim();
   if (!text) return;
-  add("me", text); inp.value = ""; btn.disabled = true;
+  add("me", text); inp.value = ""; btn.disabled = true; busy = true;
   const thinking = add("ridge", "…");
   try {
-    const r = await (await fetch("/chat", {
+    await fetch("/chat", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: text }),
-    })).json();
-    thinking.remove();
-    (r.events || []).forEach(ev => {
-      const res = typeof ev.result === "object"
-        ? (ev.result.id ? `→ id ${ev.result.id}` : `→ ${JSON.stringify(ev.result).slice(0, 120)}`)
-        : `→ ${ev.result}`;
-      add("tool", `⚙ ${ev.tool}(${JSON.stringify(ev.args).slice(0, 110)}) ${res}`);
     });
-    add("ridge", r.reply || "(no reply)");
-  } catch (err) {
-    thinking.remove(); add("ridge err", "error: " + err);
-  }
+  } catch (err) { add("ridge err", "error: " + err); }
+  busy = false; thinking.remove();
+  await render(true);
   btn.disabled = false; inp.focus();
 };
+
+render(true);
+setInterval(() => render(false), 3000);
 </script>
 </body>
 </html>

@@ -65,6 +65,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, json.dumps({"signed_url": signed_url()}).encode())
             except Exception as e:  # noqa: BLE001
                 self._send(502, json.dumps({"error": str(e)}).encode())
+        elif self.path.startswith("/history"):
+            import chat_engine
+            self._send(200, json.dumps(chat_engine.history(),
+                                       default=str).encode())
         elif self.path.startswith("/talk"):  # voice mode (parked, still works)
             self._send(200, (ROOT / "voice" / "talk.html").read_bytes(),
                        "text/html; charset=utf-8")
@@ -86,6 +90,13 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:  # noqa: BLE001
                 self._send(500, json.dumps({"error": str(e)}).encode())
             return
+        if self.path == "/transcript":  # voice lines join the same conversation
+            import chat_engine
+            role = "user" if body.get("role") == "user" else "assistant"
+            content = (body.get("content") or "").strip()
+            if content:
+                chat_engine.append_turn(role, content, source="voice")
+            return self._send(200, b'{"ok": true}')
         if self.path != "/act":
             return self._send(404, b"{}")
         username = (body.get("username") or "carla_codes").strip()
