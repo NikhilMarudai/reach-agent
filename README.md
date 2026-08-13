@@ -43,9 +43,14 @@ proposal.
   recovery challenge — all through the same API doors the iOS app uses.
 - **Survives death.** LangGraph checkpoints every node to MongoDB. Ctrl-C mid-deliberation,
   run the same command: `[resume]` — it continues mid-thought. **No cold start.**
-- **Talks.** A persistent chat interface (one Mongo-backed conversation, kill-proof) drives
-  everything; an ElevenLabs conversational agent ("Ridge", expressive mode) rides the same
+- **Talks — to whoever is signed in.** A persistent chat interface (Mongo-backed,
+  kill-proof) drives everything, and it follows the app's own session: log into REACH as
+  any user and the chat acts *for them* — their memory thread, their state, their name in
+  the header. An ElevenLabs conversational agent ("Ridge", expressive mode) rides the same
   transcript, with pre-rendered fallback lines in the same voice.
+- **Tells the story.** A narrative layer (`agent/story.py`) composes each user's
+  observations and beliefs into a coherent per-user history in Mongo — the difference
+  between "you missed Tuesday" and "three weeks in — don't stop now."
 
 ## Architecture
 
