@@ -1,6 +1,10 @@
 # Ridge — No Cold Start
 
 > The accountability agent that remembers what your friends verified.
+>
+> **Judges: the rendered showcase** — demo beats under the hood, the loop, architecture,
+> memory map — **is at [nikhilmarudai.github.io/reach-agent](https://nikhilmarudai.github.io/reach-agent/)**
+> (source: [`docs/index.html`](docs/index.html)).
 
 Most people don't abandon their goals out of laziness. They abandon them because
 nothing adapts. The plan that made sense in week one goes stale by week three, the app
