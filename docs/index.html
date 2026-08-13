@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ridge — No Cold Start</title>
+<style>
+  :root {
+    --bg: #f3f6f4; --bg-raise: #ffffff; --ink: #131a16; --ink-soft: #4a564f;
+    --accent: #00794b; --accent-ink: #ffffff; --amber: #9a6b14;
+    --line: #d6ded9; --code-bg: #e9efeb;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0e1411; --bg-raise: #17201b; --ink: #e4ebe6; --ink-soft: #93a29a;
+      --accent: #2ee08a; --accent-ink: #06130c; --amber: #e0b05a;
+      --line: #26332c; --code-bg: #101a15; }
+  }
+  :root[data-theme="light"] { --bg: #f3f6f4; --bg-raise: #ffffff; --ink: #131a16;
+    --ink-soft: #4a564f; --accent: #00794b; --accent-ink: #ffffff; --amber: #9a6b14;
+    --line: #d6ded9; --code-bg: #e9efeb; }
+  :root[data-theme="dark"] { --bg: #0e1411; --bg-raise: #17201b; --ink: #e4ebe6;
+    --ink-soft: #93a29a; --accent: #2ee08a; --accent-ink: #06130c; --amber: #e0b05a;
+    --line: #26332c; --code-bg: #101a15; }
+
+  html { -webkit-text-size-adjust: 100%; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans);
+    line-height: 1.55; margin: 0; padding: 0 1.1rem 5rem; }
+  main { max-width: 44rem; margin: 0 auto; }
+  h1, h2, h3 { font-family: var(--mono); letter-spacing: -0.02em; text-wrap: balance; }
+  h1 { font-size: 1.7rem; line-height: 1.2; margin: 0.5rem 0 0.3rem; }
+  h2 { font-size: 1.05rem; margin: 0 0 0.9rem; }
+  h3 { font-size: 0.9rem; margin: 1rem 0 0.3rem; }
+  p { margin: 0.65rem 0; }
+  a { color: var(--accent); text-underline-offset: 2px; }
+  code { font-family: var(--mono); font-size: 0.82em; background: var(--code-bg);
+    border-radius: 4px; padding: 0.1em 0.35em; }
+  figure { margin: 1.2rem 0; }
+  figcaption { font-size: 0.8rem; color: var(--ink-soft); margin-top: 0.5rem; }
+  svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+  th { font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase;
+    letter-spacing: 0.07em; text-align: left; color: var(--ink-soft);
+    padding: 0.35rem 0.6rem 0.35rem 0; }
+  td { padding: 0.45rem 0.6rem 0.45rem 0; border-top: 1px solid var(--line);
+    vertical-align: top; }
+  td:first-child { font-family: var(--mono); font-size: 0.8rem; white-space: nowrap; }
+
+  header.hero { border-bottom: 2px solid var(--ink); padding: 2rem 0 1.2rem;
+    margin-bottom: 0.4rem; }
+  .eyebrow { font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase;
+    letter-spacing: 0.14em; color: var(--accent); font-weight: 700; }
+  .tagline { font-size: 1.05rem; color: var(--ink-soft); margin-top: 0.3rem; }
+  .links { font-family: var(--mono); font-size: 0.8rem; margin-top: 0.8rem; }
+  section { padding: 1.7rem 0 0.6rem; }
+  section + section { border-top: 1px solid var(--line); margin-top: 1rem; }
+  .secno { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink-soft); display: block;
+    margin-bottom: 0.2rem; }
+  .card { background: var(--bg-raise); border: 1px solid var(--line);
+    border-left: 3px solid var(--accent); padding: 0.85rem 1rem; margin: 0.8rem 0; }
+  .card.rule { border-left-color: var(--amber); }
+  .kicker { font-family: var(--mono); font-size: 0.72rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.09em; color: var(--ink-soft);
+    margin-bottom: 0.25rem; }
+  ul { padding-left: 1.15rem; margin: 0.6rem 0; }
+  li { margin: 0.34rem 0; }
+  li::marker { color: var(--accent); }
+  .beat { display: flex; gap: 0.9rem; margin: 1rem 0; align-items: flex-start; }
+  .beat b.n { font-family: var(--mono); background: var(--accent);
+    color: var(--accent-ink); border-radius: 4px; padding: 0.15rem 0.55rem;
+    font-size: 0.85rem; flex-shrink: 0; margin-top: 0.15rem; }
+  .under { color: var(--ink-soft); font-size: 0.86rem; }
+</style>
+
+<main>
+<header class="hero">
+  <span class="eyebrow">MongoDB Persistent Context Sprint · Pier 48 SF · built in one afternoon, 2026-08-13</span>
+  <h1>Ridge — No Cold Start</h1>
+  <p class="tagline">The accountability agent that remembers what your friends verified.</p>
+  <p>Habit apps track behavior; they don't understand it. Nothing notices that you always
+  fail on Sundays, and week three gets the same reminder as week one. Ridge is what it
+  looks like when an accountability app gets a memory — and its memory is built from a
+  signal almost no product has: on <a href="https://reachtoreach.com">REACH</a>, our
+  shipped social-accountability app, <strong>peers verify photographic proof of every
+  rep</strong>. Ridge learns from what real humans confirmed, not from self-report.</p>
+  <p class="links">
+    <a href="https://github.com/NikhilMarudai/reach-agent">repo</a> ·
+    everything here was built during the hack; REACH is the pre-existing environment,
+    reached only over its public HTTP API
+  </p>
+</header>
+
+<section>
+  <span class="secno">01 · The demo, under the hood</span>
+  <h2>Four beats — and what each one proves</h2>
+
+  <div class="beat"><b class="n">1</b><div>
+    <strong>"Check on Carla and act."</strong> One chat message triggers a full
+    deliberation: Ridge reads her streaks, proof posts, and the verification diary
+    through the MCP server, then writes what it learns to MongoDB.
+    <div class="under">Proves: agent memory formed from live application data. Every
+    observation stored carries evidence pointers (<code>post:4293</code>,
+    <code>date:2026-08-09</code>); the storage layer refuses one without.</div>
+  </div></div>
+
+  <div class="beat"><b class="n">2</b><div>
+    <strong>The real app changes.</strong> In REACH's feed, a 🤖 Ridge comment lands on
+    a real post; where the pattern warrants it, a recovery challenge appears, built
+    around Carla's actual failure mode. Ridge discovered that mode unprompted: her only
+    streak breaks fall on week edges (Sun 8/09, Mon 8/03 — true in the seeded data).
+    <div class="under">Proves: the agent acts through the app's own API, under the same
+    rules as the mobile client. No privileged writes.</div>
+  </div></div>
+
+  <div class="beat"><b class="n">3</b><div>
+    <strong>Kill it mid-thought.</strong> A deliberation is running in the terminal;
+    Ctrl-C kills it. The same command again prints <code>[resume]</code> and continues
+    from the exact node it died at.
+    <div class="under">Proves: LangGraph checkpoints every step to MongoDB. State
+    survives the process. <strong>No cold start.</strong></div>
+  </div></div>
+
+  <div class="beat"><b class="n">4</b><div>
+    <strong>Show the receipts.</strong> The live memory viewer lists every belief with
+    the evidence chain that produced it — each one traceable to posts real people
+    verified.
+    <div class="under">Proves: the memory is auditable. "Why did you say that" is a
+    click, not a mystery.</div>
+  </div></div>
+</section>
+
+<section>
+  <span class="secno">02 · The loop</span>
+  <h2>The feedback loop closes through people</h2>
+  <figure>
+    <svg viewBox="0 0 380 300" role="img" aria-label="The feedback loop: the agent plans and acts through MCP, a person posts proof in REACH, peers verify it, memory updates, and the next plan differs.">
+      <defs>
+        <marker id="arr2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <g font-family="ui-monospace, Menlo, monospace" font-size="12.5" fill="currentColor">
+        <rect x="20" y="20" width="150" height="44" rx="4" fill="none" stroke="currentColor"/>
+        <text x="95" y="46" text-anchor="middle">agent plans</text>
+        <rect x="210" y="20" width="150" height="44" rx="4" fill="none" stroke="currentColor"/>
+        <text x="285" y="40" text-anchor="middle">person does</text>
+        <text x="285" y="56" text-anchor="middle">the rep · posts proof</text>
+        <rect x="210" y="122" width="150" height="44" rx="4" fill="var(--accent)" stroke="none"/>
+        <text x="285" y="142" text-anchor="middle" fill="var(--accent-ink)" font-weight="700">PEERS VERIFY</text>
+        <text x="285" y="158" text-anchor="middle" fill="var(--accent-ink)" font-size="11">approve / reject</text>
+        <rect x="20" y="122" width="150" height="44" rx="4" fill="none" stroke="currentColor"/>
+        <text x="95" y="142" text-anchor="middle">memory updates</text>
+        <text x="95" y="158" text-anchor="middle" font-size="11" opacity="0.75">observation → belief</text>
+        <rect x="20" y="224" width="340" height="44" rx="4" fill="none" stroke="currentColor"/>
+        <text x="190" y="244" text-anchor="middle">next plan is different</text>
+        <text x="190" y="260" text-anchor="middle" font-size="11" opacity="0.75">harder if clean · rescheduled if a day keeps failing</text>
+        <line x1="170" y1="42" x2="206" y2="42" stroke="currentColor" marker-end="url(#arr2)"/>
+        <line x1="285" y1="64" x2="285" y2="118" stroke="currentColor" marker-end="url(#arr2)"/>
+        <line x1="206" y1="144" x2="174" y2="144" stroke="currentColor" marker-end="url(#arr2)"/>
+        <line x1="95" y1="166" x2="95" y2="220" stroke="currentColor" marker-end="url(#arr2)"/>
+        <path d="M 360 246 C 376 246 376 42 366 42 L 364 42" fill="none" stroke="currentColor" marker-end="url(#arr2)" opacity="0.6"/>
+      </g>
+    </svg>
+    <figcaption>Every other agent's loop closes on self-report. This one closes on
+    humans judging photographic proof — the memory is grounded in verified truth.</figcaption>
+  </figure>
+  <div class="card rule">
+    <span class="kicker">Enforced in code, not prompt</span>
+    Ridge <strong>never verifies proof and never posts it</strong> — humans do. Its only
+    self-executed writes: a peer nudge, an in-app comment, at most one pattern-warranted
+    recovery challenge. Everything else is a proposal. Agent plans; people judge.
+  </div>
+</section>
+
+<section>
+  <span class="secno">03 · Architecture</span>
+  <h2>Built outside the app, on purpose</h2>
+  <figure>
+    <svg viewBox="0 0 380 600" role="img" aria-label="Architecture: pre-existing REACH API at the top; below it the MCP server, LangGraph agent, MongoDB Atlas memory, and the chat, voice, and viewer interfaces, all built at the hackathon.">
+      <defs>
+        <marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <g font-family="ui-monospace, Menlo, monospace" font-size="13" fill="currentColor">
+        <rect x="40" y="14" width="300" height="74" rx="4" fill="none" stroke="currentColor" stroke-dasharray="5 4" opacity="0.75"/>
+        <text x="190" y="40" text-anchor="middle" font-weight="700">REACH API · Django</text>
+        <text x="190" y="60" text-anchor="middle" font-size="11.5" opacity="0.7">pre-existing shipped app · not in this repo</text>
+        <text x="190" y="76" text-anchor="middle" font-size="11.5" opacity="0.7">streaks · proof posts · peer verification</text>
+
+        <line x1="190" y1="88" x2="190" y2="124" stroke="currentColor" marker-end="url(#arr)"/>
+        <text x="200" y="110" font-size="11.5" opacity="0.8">HTTP · token auth · same rules as the app</text>
+
+        <rect x="40" y="126" width="300" height="64" rx="4" fill="none" stroke="var(--accent)" stroke-width="2.2"/>
+        <text x="190" y="152" text-anchor="middle" font-weight="700">MCP server · FastMCP</text>
+        <text x="190" y="171" text-anchor="middle" font-size="11.5" opacity="0.7">12 tools · dry-run gate · write cap</text>
+
+        <line x1="190" y1="190" x2="190" y2="226" stroke="currentColor" marker-end="url(#arr)"/>
+        <text x="200" y="212" font-size="11.5" opacity="0.8">tools</text>
+
+        <rect x="40" y="228" width="300" height="88" rx="4" fill="none" stroke="var(--accent)" stroke-width="2.2"/>
+        <text x="190" y="254" text-anchor="middle" font-weight="700">agent · LangGraph</text>
+        <text x="190" y="273" text-anchor="middle" font-size="11.5" opacity="0.7">observe → remember → decide → act → brief</text>
+        <text x="190" y="290" text-anchor="middle" font-size="11.5" opacity="0.7">models via OpenRouter · story layer</text>
+        <text x="190" y="307" text-anchor="middle" font-size="11.5" opacity="0.7">checkpoint after every node</text>
+
+        <line x1="176" y1="316" x2="176" y2="352" stroke="currentColor" marker-end="url(#arr)"/>
+        <line x1="204" y1="352" x2="204" y2="316" stroke="currentColor" marker-end="url(#arr)"/>
+        <text x="212" y="338" font-size="11.5" opacity="0.8">memory + checkpoints</text>
+
+        <rect x="40" y="354" width="300" height="106" rx="4" fill="none" stroke="var(--accent)" stroke-width="2.2"/>
+        <text x="190" y="380" text-anchor="middle" font-weight="700">MongoDB Atlas</text>
+        <text x="190" y="400" text-anchor="middle" font-size="11.5" opacity="0.7">observations (evidence-required) · beliefs</text>
+        <text x="190" y="417" text-anchor="middle" font-size="11.5" opacity="0.7">stories · runs · chat transcript</text>
+        <text x="190" y="434" text-anchor="middle" font-size="11.5" opacity="0.7">LangGraph checkpoints</text>
+        <text x="190" y="452" text-anchor="middle" font-size="11.5" fill="var(--accent)">what's stored changes what happens next</text>
+
+        <line x1="190" y1="460" x2="190" y2="496" stroke="currentColor" marker-end="url(#arr)"/>
+
+        <rect x="40" y="498" width="300" height="64" rx="4" fill="none" stroke="var(--accent)" stroke-width="2.2"/>
+        <text x="190" y="522" text-anchor="middle" font-weight="700">chat :8030 · voice · viewer :8020</text>
+        <text x="190" y="540" text-anchor="middle" font-size="11.5" opacity="0.7">chat follows the app session · ElevenLabs "Ridge"</text>
+        <text x="190" y="556" text-anchor="middle" font-size="11.5" opacity="0.7">viewer: every belief → its evidence</text>
+
+        <line x1="52" y1="584" x2="86" y2="584" stroke="currentColor" stroke-dasharray="5 4" opacity="0.75"/>
+        <text x="94" y="588" font-size="11.5" opacity="0.8">pre-existing (declared)</text>
+        <line x1="230" y1="584" x2="264" y2="584" stroke="var(--accent)" stroke-width="2.2"/>
+        <text x="272" y="588" font-size="11.5" opacity="0.8">built today</text>
+      </g>
+    </svg>
+    <figcaption>Living outside the app forces modularity: the entire REACH-specific
+    surface is the MCP server plus one seam file. Built for REACH — we claim what we
+    built, not a universal layer.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <span class="secno">04 · MongoDB, concretely</span>
+  <h2>Six kinds of memory, one Atlas cluster</h2>
+  <table>
+    <tr><th>store</th><th>collection</th><th>what it changes</th></tr>
+    <tr><td>episodic</td><td><code>observations</code></td><td>Facts with mandatory evidence pointers into REACH — evidence-free memories are refused at the storage layer</td></tr>
+    <tr><td>semantic</td><td><code>beliefs</code></td><td>The working model of the person, read into every plan</td></tr>
+    <tr><td>narrative</td><td><code>stories</code></td><td>Per-user history — "three weeks in, don't stop now," not "you missed a post"</td></tr>
+    <tr><td>audit</td><td><code>runs</code></td><td>Every deliberation: what it read, concluded, did</td></tr>
+    <tr><td>state</td><td>checkpoints</td><td>Kill-and-resume mid-deliberation</td></tr>
+    <tr><td>conversation</td><td>transcript</td><td>One persistent thread — voice and text share it, per app user</td></tr>
+  </table>
+  <p class="under">Stack: MongoDB Atlas · LangGraph + langgraph-checkpoint-mongodb ·
+  OpenRouter · ElevenLabs Agents (expressive) · MCP (FastMCP + langchain-mcp-adapters) ·
+  Python 3.11.</p>
+</section>
+
+<section>
+  <span class="secno">05 · Provenance & team</span>
+  <h2>What's ours, what's new, who built it</h2>
+  <ul>
+    <li><strong>Built during the hackathon: everything in this repo.</strong> First
+      commit 1:40 PM PT; ~40 commits in one afternoon — the history is the timesheet.</li>
+    <li><strong>Pre-existing:</strong> REACH, our shipped app — the environment Ridge
+      observes and acts in, reached only over its public HTTP API. No REACH code here.</li>
+    <li><strong>Team:</strong> Nikhil Marudai, solo human, with a fleet of Claude Code
+      sessions as the build crew — an orchestrator and three lanes coordinated through a
+      shared checkpoint file, landing in parallel.</li>
+  </ul>
+</section>
+</main>
+
+</html>
