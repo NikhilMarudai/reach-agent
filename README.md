@@ -1,4 +1,6 @@
-# REACH Agent — No Cold Start
+# Ridge — No Cold Start
+
+> The accountability agent that remembers what your friends verified.
 
 An accountability agent whose feedback signal is **other humans verifying photographic
 proof** — with persistent memory in MongoDB Atlas, so run two starts where run one
