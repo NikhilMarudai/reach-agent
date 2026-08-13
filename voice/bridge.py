@@ -8,6 +8,7 @@ so Ridge's next turn knows what it just did.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import pathlib
@@ -98,6 +99,16 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 out = chat_engine.chat((body.get("message") or "").strip(),
                                        username=body.get("username"))
+                self._send(200, json.dumps(out, default=str).encode())
+            except Exception as e:  # noqa: BLE001
+                self._send(500, json.dumps({"error": str(e)}).encode())
+            return
+        if self.path == "/simulate":  # care sweep for the acting user
+            import chat_engine
+            try:
+                out = asyncio.run(chat_engine._exec("care_sweep", {
+                    "username": (body.get("username") or "carla_codes").strip(),
+                    "tone": body.get("tone") or "auto"}))
                 self._send(200, json.dumps(out, default=str).encode())
             except Exception as e:  # noqa: BLE001
                 self._send(500, json.dumps({"error": str(e)}).encode())

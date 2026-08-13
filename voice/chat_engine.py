@@ -72,6 +72,18 @@ TOOLS = [
             "custom_message": {"type": "string"}},
             "required": ["username", "challenge_id", "recipient_user_id"]}}},
     {"type": "function", "function": {
+        "name": "care_sweep",
+        "description": "Reach out to a user UNPROMPTED: read their story + live "
+                       "state, compose a check-in citing why they started, and "
+                       "deliver it to their Ridge chat thread AND their in-app "
+                       "bell. Use when asked to check on / encourage / "
+                       "congratulate someone, or when they're missing posts.",
+        "parameters": {"type": "object", "properties": {
+            "username": {"type": "string"},
+            "tone": {"type": "string", "enum": ["auto", "encourage", "celebrate"],
+                     "description": "auto decides from their state"}},
+            "required": ["username"]}}},
+    {"type": "function", "function": {
         "name": "run_deliberation",
         "description": "Fire a FULL background deliberation for a user (re-read world, update "
                        "memory, adapt plan, comment in-app). Takes ~1 min; the feed updates.",
@@ -108,6 +120,17 @@ def _system(primary: str) -> str:
 
 
 async def _exec(name: str, args: dict):
+    if name == "care_sweep":
+        cmd = [str(ROOT / ".venv/bin/python"), str(ROOT / "agent/care.py"),
+               args["username"]]
+        if args.get("tone") and args["tone"] != "auto":
+            cmd += ["--tone", args["tone"]]
+        done = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
+                              timeout=300)
+        lines = [ln for ln in (done.stdout or "").splitlines()
+                 if ln.startswith(("TITLE:", "MESSAGE:", "bell:"))]
+        return {"delivered": done.returncode == 0, "detail": lines or
+                (done.stderr or "")[-300:]}
     if name == "run_deliberation":
         subprocess.Popen(
             [str(ROOT / ".venv/bin/python"), str(ROOT / "agent/run.py"),
