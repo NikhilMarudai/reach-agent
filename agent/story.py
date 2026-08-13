@@ -52,7 +52,10 @@ def extract(username: str) -> dict:
     names = {c.get("id"): c.get("name") for c in raw_challenges}
 
     import requests as _rq
-    posts, seen, url = [], set(), f"{server.BASE}/api/challenges/challenge-posts/"
+    # user_id scopes server-side (correct privacy path, less data); the
+    # client-side check below stays as belt-and-braces.
+    posts, seen = [], set()
+    url = f"{server.BASE}/api/challenges/challenge-posts/?user_id={uid}"
     headers = {"Authorization": f"Token {server._token(username)}"}
     for _page in range(8):
         r = _rq.get(url, headers=headers, timeout=15)

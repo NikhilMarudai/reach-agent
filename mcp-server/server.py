@@ -180,13 +180,19 @@ def get_challenge(username: str, challenge_id: int, target_user: int | None = No
 
 
 @mcp.tool()
-def list_posts(username: str, challenge_id: int) -> list | dict:
-    """Proof posts for a challenge. NOTE: new posts emit NO event on the diary —
-    this poll is the only way to see them before anyone votes."""
-    # The query param is challenge_id — `challenge` is SILENTLY IGNORED and
-    # returns every visible post (found live 15:20; belt-and-braces filter below).
-    payload = _get("/api/challenges/challenge-posts/", username, challenge_id=challenge_id)
-    return [_post_brief(p) for p in _items(payload) if p.get("challenge") == challenge_id]
+def list_posts(username: str, challenge_id: int, user_id: int | None = None) -> list | dict:
+    """Proof posts for a challenge; optional user_id scopes to one author,
+    server-side. NOTE: new posts emit NO event on the diary — this poll is the
+    only way to see them before anyone votes."""
+    # Params are challenge_id/user_id — `challenge`/`user` are SILENTLY IGNORED
+    # by DRF and return every visible post (found live; belt-and-braces below).
+    params = {"challenge_id": challenge_id}
+    if user_id is not None:
+        params["user_id"] = user_id
+    payload = _get("/api/challenges/challenge-posts/", username, **params)
+    return [_post_brief(p) for p in _items(payload)
+            if p.get("challenge") == challenge_id
+            and (user_id is None or (p.get("user") or {}).get("id") == user_id)]
 
 
 @mcp.tool()
