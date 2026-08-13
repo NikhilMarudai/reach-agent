@@ -1,5 +1,5 @@
 {
-  "_comment": "Shape of the runtime context appended to persona.md per conversation turn. agent/ (O's lane) assembles this from Mongo memory + REACH reads. Numbers below are the real demo-world values as of seeding.",
+  "_comment": "Shape of the blob agent/loop.py's brief node ACTUALLY emits (verified against loop.py 14:55 PT — this file mirrors that seam; loop.py is the authority). The voice layer speaks `message_to_user` verbatim-ish and uses the rest as conversational context. NOTE for depth: peer names / posted_today / last-post details are NOT in `state` — they arrive via `observations` facts, so peer-specific voice lines depend on memory having observed them.",
   "today": "2026-08-13",
   "user": {
     "username": "carla_codes",
@@ -10,16 +10,16 @@
     "goals": ["150 leetcode problems", "Land a product-company offer", "Stop rage-quitting after hard problems"]
   },
   "state": {
-    "challenge": {"id": 398, "name": "Daily 5K Run", "peers": ["alice_runner (creator, streak 27)"]},
-    "current_streak": 3,
-    "posted_today": false,
-    "last_verified_post": {"date": "2026-08-12", "content": "Did an easy one just to keep the chain alive. That's allowed."}
+    "challenge_id": 398,
+    "streak": 3
   },
   "observations": [
     {"fact": "Both recent streak breaks fell on the week's edges: Sunday 2026-08-09 and Monday 2026-08-03. No midweek break in the whole window.", "evidence": ["posts:challenge=398,user=408"]},
+    {"fact": "alice_runner (creator, streak 27) verified carla's latest post.", "evidence": ["verification:post=<id>"]},
     {"fact": "Posts land late — usual hour 23:00. Late posts still count; never scold the hour.", "evidence": ["post_created_at histogram"]}
   ],
   "plan": [
     {"commitment": "Run + post proof daily on challenge 398", "adjustment_proposed": "Sunday/Monday guard: schedule the run BEFORE the weekend ends, morning slot"}
-  ]
+  ],
+  "message_to_user": "One Sunday. Before it: five straight, all verified. That's an edge-of-the-week problem, and we can plan for it."
 }
