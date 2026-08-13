@@ -91,7 +91,10 @@ def build_graph(memory: Memory, tools: ReachTools, checkpointer):
             ' "beliefs": [{"key": str, "text": str}]}\n'
             "Max 4 observations. Evidence entries MUST quote ids/dates that appear "
             "in the data below (e.g. 'post:123', 'date:2026-08-09'). An observation "
-            "you cannot evidence, you must not make.\n\n"
+            "you cannot evidence, you must not make.\n"
+            "beliefs is REQUIRED: 1-3 entries distilling the durable pattern (key = "
+            "a stable slug like 'posting_rhythm' or 'failure_mode', text = one "
+            "sentence). Update an existing key when the evidence shifts it.\n\n"
             f"PRIOR BELIEFS:\n{json.dumps(prior, default=str)[:2000]}\n\n"
             f"STREAK:\n{json.dumps(state.get('streak'), default=str)[:2000]}\n\n"
             f"POSTS:\n{json.dumps(state.get('posts'), default=str)[:4000]}\n\n"
@@ -127,6 +130,8 @@ def build_graph(memory: Memory, tools: ReachTools, checkpointer):
             f"DOSSIER:\n{json.dumps(d, default=str)[:2000]}\n\n"
             f"BELIEFS (your memory of them):\n"
             f"{json.dumps(state.get('beliefs'), default=str)[:3000]}\n\n"
+            f"PAST OBSERVATIONS (earlier runs, with evidence):\n"
+            f"{json.dumps(memory.recent_observations(state['username'], 8), default=str)[:3000]}\n\n"
             f"TODAY'S STATE:\nstreak={json.dumps(state.get('streak'), default=str)[:1500]}\n"
             f"new_observations={json.dumps(state.get('new_observations'), default=str)[:1500]}"
         )

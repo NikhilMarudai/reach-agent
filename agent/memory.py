@@ -38,8 +38,11 @@ class Memory:
         return self.db.observations.insert_one(doc).inserted_id
 
     def recent_observations(self, user: str, k: int = 10) -> list[dict]:
+        # _id projected out: these docs travel through LangGraph state, and the
+        # checkpointer cannot serialize ObjectIds (bit us twice on 2026-08-13).
         return list(
-            self.db.observations.find({"user": user}).sort("ts", DESCENDING).limit(k)
+            self.db.observations.find({"user": user}, {"_id": 0})
+            .sort("ts", DESCENDING).limit(k)
         )
 
     # ── beliefs ─────────────────────────────────────────────────────
@@ -53,7 +56,7 @@ class Memory:
 
     def beliefs_for(self, user: str, k: int = 8) -> list[dict]:
         return list(
-            self.db.beliefs.find({"user": user})
+            self.db.beliefs.find({"user": user}, {"_id": 0})
             .sort("updated_at", DESCENDING).limit(k)
         )
 
