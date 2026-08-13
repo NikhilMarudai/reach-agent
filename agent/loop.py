@@ -84,9 +84,16 @@ def build_graph(memory: Memory, tools: ReachTools, checkpointer):
     async def remember(state: AgentState) -> AgentState:
         u = state["username"]
         prior = memory.beliefs_for(u)
+        today = datetime.datetime.now().strftime("%Y-%m-%d (%A)")
         prompt = (
+            f"TODAY is {today}.\n"
             "You extract durable observations about a person's accountability "
-            "behavior from their app data. Reply ONLY with JSON:\n"
+            "behavior from their app data. Every fact MUST contain at least one "
+            "concrete date, number, or username taken from the data — a fact "
+            "without one is worthless and must be dropped. Look hard for "
+            "day-of-week patterns in post dates and gaps (e.g. 'both breaks fell "
+            "on week edges: Sunday 8/09, Monday 8/03'), and note who verified "
+            "what, by name. Reply ONLY with JSON:\n"
             '{"observations": [{"fact": str, "evidence": [str, ...]}],\n'
             ' "beliefs": [{"key": str, "text": str}]}\n'
             "Max 4 observations. Evidence entries MUST quote ids/dates that appear "
@@ -100,7 +107,7 @@ def build_graph(memory: Memory, tools: ReachTools, checkpointer):
             f"POSTS:\n{json.dumps(state.get('posts'), default=str)[:4000]}\n\n"
             f"EVENTS:\n{json.dumps(state.get('events'), default=str)[:3000]}"
         )
-        out = _parse_json((await _llm("fast").ainvoke(prompt)).content)
+        out = _parse_json((await _llm("planner").ainvoke(prompt)).content)
         new_obs = []
         for o in out.get("observations", []):
             try:
@@ -116,7 +123,13 @@ def build_graph(memory: Memory, tools: ReachTools, checkpointer):
 
     async def decide(state: AgentState) -> AgentState:
         d = state.get("dossier", {})
+        today = datetime.datetime.now().strftime("%Y-%m-%d (%A)")
         prompt = (
+            f"TODAY is {today}. "
+            "If a post was verified by a peer since your last run, acknowledge it "
+            "— name the verifier and the date; that verification is your ground "
+            "truth. State your single strongest dated pattern from memory as a "
+            "discovery (e.g. 'both breaks fell on week edges'). "
             "You are an accountability agent for one person. You NEVER verify "
             "their proof (their peers do), you NEVER post for them, and you never "
             "call yourself a coach. You may propose plan adjustments and at most "
