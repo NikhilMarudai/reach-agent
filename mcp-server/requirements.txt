@@ -1,0 +1,4 @@
+mcp>=1.2,<2  # 2.0 removed mcp.server.fastmcp; pinned to the stable FastMCP API
+requests>=2.32
+python-dotenv>=1.0
+pillow>=10.0
