@@ -209,7 +209,7 @@ def build_graph(memory: Memory, tools: ReachTools, checkpointer):
             actions=state.get("actions_taken", []),
             proposals=decision.get("proposals", []),
         )
-        return {"blob": blob}
+        return {"blob": blob, "tool_errors": list(tools.errors)}
 
     def paced(fn):
         # AGENT_NODE_DELAY=<seconds> slows the loop — deterministic ctrl-C window

@@ -25,10 +25,16 @@ class ReachTools:
             return None
         try:
             out = await tool.ainvoke(args)
-            # Adapters may return MCP content blocks: [{'type':'text','text':...}]
+            # Adapters return MCP content blocks — for LIST results, one block
+            # PER ITEM. Parse each block; a joined blob is not valid JSON.
             if isinstance(out, list) and out and isinstance(out[0], dict) \
                     and out[0].get("type") == "text":
-                out = "".join(b.get("text", "") for b in out)
+                texts = [b.get("text", "") for b in out]
+                try:
+                    parsed = [json.loads(t) for t in texts]
+                    return parsed[0] if len(parsed) == 1 else parsed
+                except (ValueError, TypeError):
+                    out = "\n".join(texts)
             if isinstance(out, str):
                 try:
                     return json.loads(out)
