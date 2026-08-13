@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Ridge — chat</title>
+<style>
+  body { background:#0d1210; color:#dfe7e2; font:14px/1.55 ui-monospace,Menlo,monospace;
+         margin:0; display:flex; flex-direction:column; height:100vh; }
+  header { padding:12px 18px; border-bottom:1px solid #223129; }
+  header b { color:#2ee08a; } header span { color:#7d8f86; font-size:12px; }
+  #log { flex:1; overflow-y:auto; padding:14px 18px; display:flex;
+         flex-direction:column; gap:10px; }
+  .msg { max-width:72ch; white-space:pre-wrap; padding:8px 12px; border-radius:6px; }
+  .me { align-self:flex-end; background:#1c2a22; }
+  .ridge { align-self:flex-start; background:#141b17; border:1px solid #223129; }
+  .tool { align-self:flex-start; color:#7aa7e0; font-size:12px; padding:0 4px; }
+  .err { color:#e0665a; }
+  form { display:flex; gap:8px; padding:12px 18px; border-top:1px solid #223129; }
+  input { flex:1; background:#141b17; border:1px solid #223129; border-radius:6px;
+          color:#dfe7e2; font:14px ui-monospace,Menlo,monospace; padding:10px 12px; }
+  input:focus { outline:1px solid #2ee08a; }
+  button { background:#2ee08a; color:#06130c; border:0; border-radius:6px;
+           font:700 14px ui-monospace,Menlo,monospace; padding:0 20px; cursor:pointer; }
+  button:disabled { opacity:.5; }
+</style>
+</head>
+<body>
+<header><b>🤖 Ridge</b> — text mode &nbsp;<span>controls REACH through the MCP server ·
+watch the feed (:3000) and the mind (:8020)</span></header>
+<div id="log"></div>
+<form id="f">
+  <input id="inp" autocomplete="off" autofocus
+         placeholder='try: "make carla a 7-day weekend-guard recovery challenge"'>
+  <button id="send">Send</button>
+</form>
+<script>
+const log = document.getElementById("log");
+const add = (cls, txt) => {
+  const d = document.createElement("div");
+  d.className = "msg " + cls; d.textContent = txt;
+  log.appendChild(d); log.scrollTop = log.scrollHeight;
+  return d;
+};
+document.getElementById("f").onsubmit = async (e) => {
+  e.preventDefault();
+  const inp = document.getElementById("inp"), btn = document.getElementById("send");
+  const text = inp.value.trim();
+  if (!text) return;
+  add("me", text); inp.value = ""; btn.disabled = true;
+  const thinking = add("ridge", "…");
+  try {
+    const r = await (await fetch("/chat", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text }),
+    })).json();
+    thinking.remove();
+    (r.events || []).forEach(ev => {
+      const res = typeof ev.result === "object"
+        ? (ev.result.id ? `→ id ${ev.result.id}` : `→ ${JSON.stringify(ev.result).slice(0, 120)}`)
+        : `→ ${ev.result}`;
+      add("tool", `⚙ ${ev.tool}(${JSON.stringify(ev.args).slice(0, 110)}) ${res}`);
+    });
+    add("ridge", r.reply || "(no reply)");
+  } catch (err) {
+    thinking.remove(); add("ridge err", "error: " + err);
+  }
+  btn.disabled = false; inp.focus();
+};
+</script>
+</body>
+</html>

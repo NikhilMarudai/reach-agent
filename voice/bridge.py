@@ -65,18 +65,29 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, json.dumps({"signed_url": signed_url()}).encode())
             except Exception as e:  # noqa: BLE001
                 self._send(502, json.dumps({"error": str(e)}).encode())
-        else:
-            page = (ROOT / "voice" / "talk.html").read_bytes()
-            self._send(200, page, "text/html; charset=utf-8")
+        elif self.path.startswith("/talk"):  # voice mode (parked, still works)
+            self._send(200, (ROOT / "voice" / "talk.html").read_bytes(),
+                       "text/html; charset=utf-8")
+        else:  # default: text chat
+            self._send(200, (ROOT / "voice" / "chat.html").read_bytes(),
+                       "text/html; charset=utf-8")
 
     def do_POST(self):  # noqa: N802
-        if self.path != "/act":
-            return self._send(404, b"{}")
         n = int(self.headers.get("Content-Length", 0))
         try:
             body = json.loads(self.rfile.read(n) or b"{}")
         except ValueError:
             body = {}
+        if self.path == "/chat":
+            import chat_engine  # lazy; voice/ is sys.path[0] when run as script
+            try:
+                out = chat_engine.chat((body.get("message") or "").strip())
+                self._send(200, json.dumps(out, default=str).encode())
+            except Exception as e:  # noqa: BLE001
+                self._send(500, json.dumps({"error": str(e)}).encode())
+            return
+        if self.path != "/act":
+            return self._send(404, b"{}")
         username = (body.get("username") or "carla_codes").strip()
         threading.Thread(target=deliberate, args=(username,), daemon=True).start()
         self._send(200, json.dumps({
