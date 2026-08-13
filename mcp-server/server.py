@@ -18,6 +18,7 @@ import base64
 import io
 import logging
 import os
+import subprocess
 import sys
 import uuid
 from datetime import date
@@ -312,6 +313,35 @@ def nudge(username: str, challenge_id: int, recipient_user_id: int,
     3-per-person limit, weekly quota, and block checks server-side."""
     body = {"recipient_user_id": recipient_user_id, "custom_message": custom_message[:140]}
     return _write_gate("nudge", body) or _post(f"/api/challenges/{challenge_id}/nudge/", username, body)
+
+
+REACH_BACKEND = Path(os.environ.get(
+    "REACH_BACKEND_DIR",
+    "/Users/nikhil/Desktop/Code/REACH/social_media_project/backend"))
+
+
+@mcp.tool()
+def notify_user(username: str, title: str, body: str) -> dict:
+    """Send this user an in-app notification — lands on their bell/activity
+    page (NotificationLog; FCM no-ops locally, logged). Use for story-grounded
+    encouragement: speak to their history ("three weeks of 6am runs — don't
+    stop now"), never just the miss. Same write gate + cap as all writes."""
+    title, body = title.strip()[:255], body.strip()[:1000]
+    if not title or not body:
+        return {"error": "title and body must be non-empty"}
+    gate = _write_gate("notify_user", {"username": username, "title": title})
+    if gate:
+        return gate
+    py = REACH_BACKEND / "venv" / "bin" / "python"
+    # --persist-in-feed: without it the local (FCM-less) row lands was_sent=False
+    # and the bell/activity page filters it out — invisible notification.
+    r = subprocess.run(
+        [str(py), "manage.py", "send_direct_notification",
+         "--username", username, "--title", title, "--body", body,
+         "--persist-in-feed"],
+        cwd=str(REACH_BACKEND), capture_output=True, text=True, timeout=60)
+    return {"sent": r.returncode == 0,
+            "detail": ((r.stdout or "") + (r.stderr or "")).strip()[-200:]}
 
 
 if __name__ == "__main__":
