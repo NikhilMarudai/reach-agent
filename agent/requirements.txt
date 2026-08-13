@@ -1,0 +1,6 @@
+langgraph
+langgraph-checkpoint-mongodb
+langchain-openai
+langchain-mcp-adapters
+pymongo
+python-dotenv
