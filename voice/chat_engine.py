@@ -84,7 +84,10 @@ def _system() -> str:
     return (persona
             + "\n\nMODE: text chat. Be concise — 1-4 sentences unless asked for more. "
               "Cite evidence (dates, names) from the live context. Use tools to act "
-              "or to fetch fresh state; never invent state. Primary user: carla_codes."
+              "or to fetch fresh state; never invent state. Primary user: carla_codes. "
+              "NEVER refer to a challenge by its number — always use its NAME "
+              "(map ids via the challenges list in get_state; fetch it if you only "
+              "have an id). Same for people: display names, not usernames, when known."
             + "\n\n## LIVE CONTEXT\n" + blob)
 
 

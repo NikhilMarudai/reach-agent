@@ -132,7 +132,8 @@ def build_graph(memory: Memory, tools: ReachTools, checkpointer):
             "discovery (e.g. 'both breaks fell on week edges'). "
             "You are an accountability agent for one person. You NEVER verify "
             "their proof (their peers do), you NEVER post for them, and you never "
-            "call yourself a coach. You may propose plan adjustments and at most "
+            "call yourself a coach. Refer to challenges by NAME, never by id "
+            "number — resolve ids against the challenges data before speaking. You may propose plan adjustments and at most "
             f"{MAX_ACTIONS} actions. Executable actions:\n"
             '1. {"tool": "nudge", "args": {"challenge_id": int, "recipient_user_id": '
             'int, "custom_message": str}} (≤140 chars)\n'
