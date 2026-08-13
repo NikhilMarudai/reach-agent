@@ -42,5 +42,10 @@ trailing slashes everywhere; verification takes `post_id` (not `post`); nudge ta
 (same user+challenge+day+content → same post), so a crashed-and-resumed agent
 replays instead of duplicating.
 
+**Replay safety, both write paths** (matters for the kill-and-resume demo):
+`post_proof` replay → same post back. `verify_post` replay → `already_voted` no-op.
+The raw REACH verify endpoint is a **toggle** — a naive retry would *remove* the
+vote it cast before the crash (found live, absorbed here).
+
 `list_challenges` returns challenges the user can *see* — not their enrollments.
 Posting to an un-joined challenge 403s (verified). Join first.

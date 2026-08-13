@@ -265,8 +265,14 @@ def post_proof(username: str, challenge_id: int, content: str = "") -> dict:
 
 @mcp.tool()
 def verify_post(username: str, post_id: int, approve: bool = True) -> dict:
-    """Cast this user's peer-verification vote on a proof post. The field REACH
-    expects is post_id (NOT post). Majority wins; author cannot vote."""
+    """Cast this user's peer-verification vote on a proof post. Majority wins;
+    author cannot vote. IDEMPOTENT at this layer: REACH's raw endpoint is a
+    TOGGLE (re-sending the same vote REMOVES it) — so we check for an existing
+    matching vote first and no-op, making crash-resume replays safe."""
+    for v in _items(_get("/api/challenges/verifications/", username, post_id=post_id)):
+        by = v.get("verified_by") or {}
+        if by.get("username") == username and v.get("is_approved") == approve:
+            return {"already_voted": True, "post_id": post_id, "is_approved": approve}
     body = {"post_id": post_id, "is_approved": approve}
     return _write_gate("verify_post", body) or _post("/api/challenges/verifications/", username, body)
 

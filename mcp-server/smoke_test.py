@@ -50,7 +50,10 @@ post = check("post_proof (live)", server.post_proof("uifix_rich", cid, "MCP smok
 replay = check("post_proof idempotent replay", server.post_proof("uifix_rich", cid, "MCP smoke proof"),
                lambda r: r.get("id") == post.get("id"))
 check("verify_post (live)", server.verify_post("uifix_author", post["id"], approve=True))
+check("verify_post replay is a no-op (NOT a toggle)",
+      server.verify_post("uifix_author", post["id"], approve=True),
+      lambda r: r.get("already_voted") is True)
 check("write cap counting", {"writes": server._writes_done},
-      lambda r: r["writes"] == 3)  # replay hit the gate too — it IS a write attempt
+      lambda r: r["writes"] == 3)  # post + replay + one real verify; the no-op replay never hits the gate
 
 print("\nALL PASS — MCP server HTTP layer verified against live REACH.")
