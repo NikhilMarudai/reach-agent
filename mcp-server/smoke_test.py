@@ -53,7 +53,15 @@ check("verify_post (live)", server.verify_post("uifix_author", post["id"], appro
 check("verify_post replay is a no-op (NOT a toggle)",
       server.verify_post("uifix_author", post["id"], approve=True),
       lambda r: r.get("already_voted") is True)
+comment = check("comment_on_post (live)",
+                server.comment_on_post("uifix_author", post["id"], "Strong proof — keep the streak alive."),
+                lambda r: "error" not in r)
+check("comment replay is a no-op",
+      server.comment_on_post("uifix_author", post["id"], "Strong proof — keep the streak alive."),
+      lambda r: r.get("already_commented") is True)
+# Gate-passing writes this run: post_proof + its replay always; verify and
+# comment only on a fresh world (their idempotency layer no-ops on re-runs).
 check("write cap counting", {"writes": server._writes_done},
-      lambda r: r["writes"] == 3)  # post + replay + one real verify; the no-op replay never hits the gate
+      lambda r: 2 <= r["writes"] <= 4)
 
 print("\nALL PASS — MCP server HTTP layer verified against live REACH.")

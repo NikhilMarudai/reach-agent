@@ -278,6 +278,26 @@ def verify_post(username: str, post_id: int, approve: bool = True) -> dict:
 
 
 @mcp.tool()
+def comment_on_post(username: str, post_id: int, content: str) -> dict:
+    """Leave a comment on a proof post — the agent speaking inside the app
+    (≤1000 chars). IDEMPOTENT at this layer: if this user already has an
+    identical top-level comment on the post, no-op (crash-resume replays
+    must not double-post)."""
+    content = content.strip()[:1000]
+    if not content:
+        return {"error": "content must be non-empty"}
+    existing = _get(f"/api/challenges/challenge-posts/{post_id}/comments/", username)
+    for c in _items(existing):
+        by = c.get("user") or {}
+        if (by.get("username") if isinstance(by, dict) else by) == username \
+                and (c.get("content") or "").strip() == content:
+            return {"already_commented": True, "post_id": post_id, "comment_id": c.get("id")}
+    body = {"content": content}
+    gate = _write_gate("comment_on_post", {"post_id": post_id, "content": content[:80]})
+    return gate or _post(f"/api/challenges/challenge-posts/{post_id}/comment/", username, body)
+
+
+@mcp.tool()
 def nudge(username: str, challenge_id: int, recipient_user_id: int,
           custom_message: str = "") -> dict:
     """Nudge a fellow participant (≤140 chars). REACH enforces eligibility,
