@@ -27,8 +27,9 @@ Agent meets carla with an empty memory. It reads her world over the REACH MCP,
 writes its first observations to Mongo, proposes a plan, and speaks.
 
 ```bash
-# TODO(O): exact entrypoint —
-python agent/run.py --user carla_codes        # <- confirm flag names
+cd ~/Desktop/Code/reach-agent
+.venv/bin/python agent/run.py --user carla_codes   # thread defaults to demo-carla_codes
+# --challenge defaults to 398 · --fresh forces a new thread · blob → demo/context_blob.json
 ```
 
 **Expect:** docs appear in Mongo `observations` + `runs`; the plan names the
@@ -77,7 +78,9 @@ the two docs side by side if the room is technical.
 Ctrl-C the agent MID-deliberation on a third run. Restart it.
 
 ```bash
-# TODO(O): resume invocation (should be the same command — checkpointer resumes)
+.venv/bin/python agent/run.py --user carla_codes
+# SAME command as beat 1. It detects the interrupted thread and prints:
+#   [resume] thread 'demo-carla_codes' was interrupted at ('decide',) — resuming
 ```
 
 **Expect:** it resumes from the LangGraph checkpoint in Mongo — mid-thought,
