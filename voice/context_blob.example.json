@@ -1,0 +1,25 @@
+{
+  "_comment": "Shape of the runtime context appended to persona.md per conversation turn. agent/ (O's lane) assembles this from Mongo memory + REACH reads. Numbers below are the real demo-world values as of seeding.",
+  "today": "2026-08-13",
+  "user": {
+    "username": "carla_codes",
+    "name": "Carla Diaz",
+    "age": 24,
+    "communication_style": "Self-deprecating, meme-fluent. Gentle direct asks work; cheerleading reads as fake.",
+    "psychology": "Sprints hard, then vanishes for three days when a problem makes her feel stupid. Night owl. Needs streak-repair framed as normal, not as failure.",
+    "goals": ["150 leetcode problems", "Land a product-company offer", "Stop rage-quitting after hard problems"]
+  },
+  "state": {
+    "challenge": {"id": 398, "name": "Daily 5K Run", "peers": ["alice_runner (creator, streak 27)"]},
+    "current_streak": 3,
+    "posted_today": false,
+    "last_verified_post": {"date": "2026-08-12", "content": "Did an easy one just to keep the chain alive. That's allowed."}
+  },
+  "observations": [
+    {"fact": "Both recent streak breaks fell on the week's edges: Sunday 2026-08-09 and Monday 2026-08-03. No midweek break in the whole window.", "evidence": ["posts:challenge=398,user=408"]},
+    {"fact": "Posts land late — usual hour 23:00. Late posts still count; never scold the hour.", "evidence": ["post_created_at histogram"]}
+  ],
+  "plan": [
+    {"commitment": "Run + post proof daily on challenge 398", "adjustment_proposed": "Sunday/Monday guard: schedule the run BEFORE the weekend ends, morning slot"}
+  ]
+}
